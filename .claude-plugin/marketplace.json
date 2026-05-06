@@ -1,0 +1,12 @@
+{
+  "name": "adr-auto-generator-local",
+  "owner": "daryl-ruiz",
+  "plugins": [
+    {
+      "name": "adr-auto-generator",
+      "description": "Detects architectural decisions from file edits and captures them as ADR documents",
+      "version": "0.1.0",
+      "path": "."
+    }
+  ]
+}
