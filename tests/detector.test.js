@@ -107,3 +107,82 @@ describe('findDecisionKeyword', () => {
     assert.ok(result.length > 0);
   });
 });
+
+describe('computeHash', () => {
+  let computeHash;
+  beforeEach(() => {
+    delete require.cache[require.resolve('../hooks/detector')];
+    ({ computeHash } = require('../hooks/detector'));
+  });
+
+  it('same inputs produce same hash', () => {
+    assert.equal(
+      computeHash('src/db.js', 'migrate to'),
+      computeHash('src/db.js', 'migrate to')
+    );
+  });
+
+  it('different file path produces different hash', () => {
+    assert.notEqual(
+      computeHash('src/a.js', 'migrate to'),
+      computeHash('src/b.js', 'migrate to')
+    );
+  });
+
+  it('different keyword produces different hash', () => {
+    assert.notEqual(
+      computeHash('src/a.js', 'migrate to'),
+      computeHash('src/a.js', 'switch from')
+    );
+  });
+
+  it('returns 8-character hex string', () => {
+    const h = computeHash('file', 'kw');
+    assert.match(h, /^[0-9a-f]{8}$/);
+  });
+});
+
+describe('isDeduped / recordHash', () => {
+  let tmpDir, origEnv, isDeduped, recordHash;
+
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'adr-dedup-'));
+    origEnv = process.env.CLAUDE_CONFIG_DIR;
+    process.env.CLAUDE_CONFIG_DIR = tmpDir;
+    delete require.cache[require.resolve('../hooks/detector')];
+    ({ isDeduped, recordHash } = require('../hooks/detector'));
+  });
+
+  afterEach(() => {
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+    if (origEnv === undefined) delete process.env.CLAUDE_CONFIG_DIR;
+    else process.env.CLAUDE_CONFIG_DIR = origEnv;
+  });
+
+  it('returns false when hash not seen', () => {
+    assert.ok(!isDeduped('abc123'));
+  });
+
+  it('returns true after recordHash', () => {
+    recordHash('abc123');
+    assert.ok(isDeduped('abc123'));
+  });
+
+  it('returns false for a different hash', () => {
+    recordHash('abc123');
+    assert.ok(!isDeduped('def456'));
+  });
+
+  it('persists multiple hashes', () => {
+    recordHash('hash1');
+    recordHash('hash2');
+    assert.ok(isDeduped('hash1'));
+    assert.ok(isDeduped('hash2'));
+  });
+
+  it('recordHash is idempotent', () => {
+    recordHash('abc123');
+    recordHash('abc123');
+    assert.ok(isDeduped('abc123'));
+  });
+});
