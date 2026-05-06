@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node --test tests/adr-config.test.js)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(npm test *)",
+      "Bash(node *)",
+      "Bash(git -C /mnt/c/workspace/ADR-Auto-Generator add README.md)",
+      "Bash(git -C /mnt/c/workspace/ADR-Auto-Generator commit -m \"docs: add README with install, config, and example output\")"
+    ]
+  }
+}
