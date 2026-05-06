@@ -1,0 +1,8 @@
+{
+  "name": "adr-auto-generator",
+  "version": "1.0.0",
+  "description": "Detects architectural decisions from file edits and captures them as ADR documents",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  }
+}
