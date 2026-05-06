@@ -15,17 +15,38 @@ Whenever Claude edits an infrastructure or configuration file (e.g., `package.js
 4. Pre-fills a Nygard template and saves to `docs/adr/YYYY-MM-DD-<title>.md`
 5. Records the current git commit SHA in the ADR
 
-## Install
+## Installation
 
-```bash
-claude plugin install adr-auto-generator
+### Option 1 — Marketplace
+
+```
+/plugin marketplace add adr-auto-generator
+/plugin install adr-auto-generator
 ```
 
-Or manually:
+### Option 2 — settings.json
+
+Add to `~/.claude/settings.json`:
+
+```json
+{
+  "plugins": ["adr-auto-generator"]
+}
+```
+
+Restart Claude Code to activate.
+
+### Option 3 — --plugin-dir (local / dev)
+
 ```bash
-# Clone this repo, then copy to your Claude plugins directory:
-cp -r . ~/.claude/plugins/local/adr-auto-generator
-# Restart Claude Code to activate
+git clone https://github.com/daryl-ruiz/adr-auto-generator
+claude --plugin-dir ./adr-auto-generator
+```
+
+Or point to any local clone:
+
+```bash
+claude --plugin-dir /path/to/adr-auto-generator
 ```
 
 ## Configuration
