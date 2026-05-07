@@ -33,7 +33,7 @@ process.stdin.on('end', () => {
 
     const config = loadConfig(process.cwd());
 
-    if (!isInfraFile(filePath, config, diffText)) { process.exit(0); }
+    if (!isInfraFile(filePath, config, diffText, process.cwd())) { process.exit(0); }
 
     const keyword = findDecisionKeyword(diffText, config);
     if (!keyword) { process.exit(0); }
@@ -47,12 +47,21 @@ process.stdin.on('end', () => {
     // context can include why the user wanted this change.
     const recentIntents = config.enableMessageScanning ? loadIntents() : [];
 
-    process.stdout.write(JSON.stringify({
+    const signalPayload = JSON.stringify({
       signal: 'adr-detected',
       file: filePath,
       keyword,
       hash,
       recent_intents: recentIntents,
+    });
+
+    // Claude Code requires hookSpecificOutput.additionalContext for
+    // PostToolUse stdout to be injected into the model context.
+    process.stdout.write(JSON.stringify({
+      hookSpecificOutput: {
+        hookEventName: 'PostToolUse',
+        additionalContext: signalPayload,
+      },
     }));
   } catch (_) {
     // Silent fail — never disrupt Claude

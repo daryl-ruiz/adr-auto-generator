@@ -11,9 +11,19 @@ From the signal injected by the hook:
 
 ## Step 1: Idempotency Check
 
-Use the Read tool to read `~/.claude/adr-session-hashes.json`.
+Use the Read tool to read `~/.claude/adr-captured-hashes.json`. This file
+records hashes of ADRs already saved by this skill (written in Step 12 below).
+It is owned exclusively by the skill — the hook never touches it.
+
 - If the file does not exist: continue to Step 2.
 - If `hash` is a key in that file: **exit silently.** Do not prompt the user.
+
+> Why this file (and not `adr-emitted-hashes.json`)? The hook records every
+> emitted signal hash to `adr-emitted-hashes.json` to prevent duplicate
+> *signals*; that file is always populated for any signal you receive, so
+> checking it here would always exit silently. The skill needs a separate
+> store that only fills after a successful save, so the idempotency check
+> distinguishes "already captured" from "first time seeing this signal."
 
 ## Step 2: Prompt the User
 
@@ -150,6 +160,26 @@ mkdir -p <adrDir>
 
 Write the final ADR using the Write tool to `<fullPath>`.
 
+## Step 12.5: Record Captured Hash
+
+After the Write tool succeeds, append the current `hash` to
+`~/.claude/adr-captured-hashes.json` so future invocations of this skill
+exit silently in Step 1.
+
+Procedure:
+1. Read `~/.claude/adr-captured-hashes.json`. If it does not exist or
+   parsing fails, treat it as `{}`.
+2. Add the entry:
+   ```json
+   "<hash>": { "capturedAt": "<ISO8601 now>", "path": "<fullPath>" }
+   ```
+3. Write the updated object back to `~/.claude/adr-captured-hashes.json`
+   with `JSON.stringify(data, null, 2)` formatting (use the Write tool).
+
+This file is owned exclusively by the skill. The hook does not read or
+write it — its `adr-emitted-hashes.json` lives separately so the two
+dedup concerns never collide.
+
 ## Step 13: Confirm
 
 Reply to the user:
@@ -170,7 +200,8 @@ To resolve `adrDir`, use the Read tool on `.adr-config.json` (project) and `~/.c
 | File already exists at target path | Append `-2`, `-3` to slug |
 | Context is ambiguous | Ask one clarifying question, then continue |
 | "edit first" — no reply after 2 prompts | Save with `**Status:** pending user review` |
-| Hash already in session hashes | Exit silently (Step 1) |
+| Hash already in `adr-captured-hashes.json` | Exit silently (Step 1) |
+| Write to `adr-captured-hashes.json` fails | Log nothing; ADR is saved either way. The next invocation may re-prompt — preferable to losing the ADR. |
 | Alternatives not discussed | Single bullet: `- No alternatives were discussed.` |
 
 ---

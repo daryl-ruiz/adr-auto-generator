@@ -112,6 +112,88 @@ describe('isInfraFile', () => {
   });
 });
 
+describe('isInAdrDir', () => {
+  let isInAdrDir;
+  beforeEach(() => {
+    delete require.cache[require.resolve('../hooks/detector')];
+    ({ isInAdrDir } = require('../hooks/detector'));
+  });
+
+  it('returns true for relative path inside default adrDir', () => {
+    assert.ok(isInAdrDir('docs/adr/0001-foo.md', {}, '/repo'));
+  });
+
+  it('returns true for absolute path inside default adrDir', () => {
+    assert.ok(isInAdrDir('/repo/docs/adr/0001-foo.md', {}, '/repo'));
+  });
+
+  it('returns true for nested subdirectory', () => {
+    assert.ok(isInAdrDir('docs/adr/legacy/0001.md', {}, '/repo'));
+  });
+
+  it('returns false for sibling directory', () => {
+    assert.ok(!isInAdrDir('docs/api/0001-foo.md', {}, '/repo'));
+  });
+
+  it('honors custom adrDir from config', () => {
+    const config = { adrDir: 'architecture/decisions' };
+    assert.ok(isInAdrDir('architecture/decisions/0001.md', config, '/repo'));
+    assert.ok(!isInAdrDir('docs/adr/0001.md', config, '/repo'));
+  });
+
+  it('handles trailing slash in adrDir config', () => {
+    const config = { adrDir: 'architecture/decisions/' };
+    assert.ok(isInAdrDir('architecture/decisions/0001.md', config, '/repo'));
+  });
+
+  it('handles Windows-style backslash paths', () => {
+    assert.ok(isInAdrDir('docs\\adr\\0001-foo.md', {}, '/repo'));
+  });
+
+  it('does not match a path that merely starts with adrDir as a substring', () => {
+    // 'docs/adrSomething' must not match 'docs/adr'
+    assert.ok(!isInAdrDir('docs/adrSomething/x.md', {}, '/repo'));
+  });
+});
+
+describe('isInfraFile excludes adrDir', () => {
+  let isInfraFile;
+  beforeEach(() => {
+    delete require.cache[require.resolve('../hooks/detector')];
+    ({ isInfraFile } = require('../hooks/detector'));
+  });
+
+  it('returns false for a markdown file inside docs/adr even if filename matches infraNamePatterns', () => {
+    const config = {
+      ...INFRA_CONFIG,
+      adrDir: 'docs/adr',
+      infraNamePatterns: ['migrate', 'migration', 'schema'],
+    };
+    // The filename contains "migrate" which would normally match infraNamePatterns
+    // but the file is inside the configured adrDir → must be excluded.
+    assert.ok(
+      !isInfraFile('docs/adr/2026-05-07-migrate-from-axios.md', config, '', '/repo')
+    );
+  });
+
+  it('returns false for ADR file even when content has heavy import strings', () => {
+    const config = { ...INFRA_CONFIG, adrDir: 'docs/adr' };
+    assert.ok(
+      !isInfraFile(
+        'docs/adr/0001-adopt-asyncpg.md',
+        config,
+        'We will import asyncpg in the data layer.',
+        '/repo'
+      )
+    );
+  });
+
+  it('still returns true for sibling docs files outside adrDir', () => {
+    const config = { ...INFRA_CONFIG, adrDir: 'docs/adr' };
+    assert.ok(isInfraFile('package.json', config, '', '/repo'));
+  });
+});
+
 describe('matchesInfraContent', () => {
   let matchesInfraContent;
   beforeEach(() => {
