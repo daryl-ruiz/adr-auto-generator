@@ -111,4 +111,89 @@ describe('post-tool-use.js', () => {
       { claudeDir: tmpDir, cwd: tmpDir });
     assert.equal(result.status, 0);
   });
+
+  it('detects entry-point app.py write with decision keyword', () => {
+    const { result } = runHook({
+      tool_name: 'Write',
+      tool_input: {
+        file_path: '/repo/app.py',
+        content: 'import asyncpg\n# migrate to asyncpg from sqlite',
+      },
+    }, { claudeDir: tmpDir, cwd: tmpDir });
+    const out = result.stdout.toString();
+    assert.ok(out.length > 0, 'expected signal output for app.py edit');
+    const signal = JSON.parse(out);
+    assert.equal(signal.signal, 'adr-detected');
+    assert.equal(signal.file, '/repo/app.py');
+    assert.match(signal.keyword, /migrate to/i);
+  });
+
+  it('promotes plain source file via heavy import in diff', () => {
+    // src/db_helpers.py is NOT in infraPatterns, but the diff introduces
+    // asyncpg — content rule must fire.
+    const { result } = runHook({
+      tool_name: 'Edit',
+      tool_input: {
+        file_path: 'src/db_helpers.py',
+        old_string: '# placeholder',
+        new_string: 'import asyncpg\n# migrate to asyncpg-based pool',
+      },
+    }, { claudeDir: tmpDir, cwd: tmpDir });
+    const out = result.stdout.toString();
+    assert.ok(out.length > 0, 'expected signal via content promotion');
+    const signal = JSON.parse(out);
+    assert.equal(signal.signal, 'adr-detected');
+  });
+
+  it('does not detect plain source file without heavy import', () => {
+    const { result } = runHook({
+      tool_name: 'Write',
+      tool_input: {
+        file_path: 'src/util.py',
+        content: '# we will migrate to a new helper later',
+      },
+    }, { claudeDir: tmpDir, cwd: tmpDir });
+    assert.equal(result.stdout.toString(), '');
+  });
+
+  it('signal includes recent_intents array when message scanning is on', () => {
+    // Pre-seed an intent so we can verify correlation.
+    const intentsFile = path.join(tmpDir, 'adr-pending-intents.json');
+    fs.writeFileSync(intentsFile, JSON.stringify([
+      { keyword: 'migrate to', excerpt: 'we should migrate to asyncpg', recorded_at: '2026-05-07T00:00:00.000Z' },
+    ]));
+
+    const { result } = runHook({
+      tool_name: 'Write',
+      tool_input: {
+        file_path: '/repo/app.py',
+        content: 'import asyncpg\n# migrate to asyncpg',
+      },
+    }, { claudeDir: tmpDir, cwd: tmpDir });
+    const signal = JSON.parse(result.stdout.toString());
+    assert.ok(Array.isArray(signal.recent_intents));
+    assert.equal(signal.recent_intents.length, 1);
+    assert.equal(signal.recent_intents[0].keyword, 'migrate to');
+  });
+
+  it('signal omits intents when enableMessageScanning is disabled', () => {
+    // Project-level config disables scanning.
+    fs.writeFileSync(
+      path.join(tmpDir, '.adr-config.json'),
+      JSON.stringify({ enableMessageScanning: false })
+    );
+    fs.writeFileSync(
+      path.join(tmpDir, 'adr-pending-intents.json'),
+      JSON.stringify([{ keyword: 'migrate to', excerpt: 'x', recorded_at: 'now' }])
+    );
+    const { result } = runHook({
+      tool_name: 'Write',
+      tool_input: {
+        file_path: '/repo/app.py',
+        content: 'import asyncpg\n# migrate to asyncpg',
+      },
+    }, { claudeDir: tmpDir, cwd: tmpDir });
+    const signal = JSON.parse(result.stdout.toString());
+    assert.deepEqual(signal.recent_intents, []);
+  });
 });

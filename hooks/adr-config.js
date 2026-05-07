@@ -13,6 +13,8 @@ const DEFAULT_CONFIG = {
     '*.tf', '*.tfvars', '*.hcl',
     'Makefile',
     '*.config.js', '*.config.ts', '*.config.mjs',
+    // Common application entry points — architectural decisions often land here.
+    'app.py', 'main.py', 'index.ts', 'server.js',
   ],
   infraPathPrefixes: [
     '.github/workflows/',
@@ -23,6 +25,16 @@ const DEFAULT_CONFIG = {
   ],
   infraNamePatterns: [
     'migration', 'migrate', 'schema', 'seed',
+  ],
+  // Diff-content patterns that promote any file to infra status when matched.
+  // Catches architectural shifts in plain source files (e.g. introducing a new ORM).
+  infraContentPatterns: [
+    'import\\s+asyncpg',
+    'from\\s+sqlalchemy\\s+import',
+    'import\\s+sqlalchemy',
+    'import\\s+redis',
+    'import\\s+celery',
+    'from\\s+pydantic\\s+import',
   ],
   decisionKeywords: [
     'migrate (from|to)',
@@ -40,7 +52,7 @@ const DEFAULT_CONFIG = {
     'overhaul',
     'drop .+ (in favor|for)',
   ],
-  enableMessageScanning: false,
+  enableMessageScanning: true,
 };
 
 /**

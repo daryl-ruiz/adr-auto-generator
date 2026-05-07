@@ -47,4 +47,21 @@ describe('session-start.js', () => {
     const result = runHook(tmpDir);
     assert.equal(result.stdout.toString(), '');
   });
+
+  it('deletes adr-pending-intents.json when it exists', () => {
+    const intentsFile = path.join(tmpDir, 'adr-pending-intents.json');
+    fs.writeFileSync(intentsFile, JSON.stringify([{ keyword: 'x' }]));
+    runHook(tmpDir);
+    assert.ok(!fs.existsSync(intentsFile));
+  });
+
+  it('clears both hashes and intents files in a single session start', () => {
+    const hashFile = path.join(tmpDir, 'adr-session-hashes.json');
+    const intentsFile = path.join(tmpDir, 'adr-pending-intents.json');
+    fs.writeFileSync(hashFile, '{"abc":"x"}');
+    fs.writeFileSync(intentsFile, '[]');
+    runHook(tmpDir);
+    assert.ok(!fs.existsSync(hashFile));
+    assert.ok(!fs.existsSync(intentsFile));
+  });
 });

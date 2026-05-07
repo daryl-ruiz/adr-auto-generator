@@ -9,6 +9,7 @@ const {
   isDeduped,
   recordHash,
 } = require('./detector');
+const { loadIntents } = require('./intents');
 
 let raw = '';
 process.stdin.setEncoding('utf8');
@@ -32,7 +33,7 @@ process.stdin.on('end', () => {
 
     const config = loadConfig(process.cwd());
 
-    if (!isInfraFile(filePath, config)) { process.exit(0); }
+    if (!isInfraFile(filePath, config, diffText)) { process.exit(0); }
 
     const keyword = findDecisionKeyword(diffText, config);
     if (!keyword) { process.exit(0); }
@@ -42,11 +43,16 @@ process.stdin.on('end', () => {
 
     recordHash(hash);
 
+    // Correlate with any pending message-scanned intents so the ADR
+    // context can include why the user wanted this change.
+    const recentIntents = config.enableMessageScanning ? loadIntents() : [];
+
     process.stdout.write(JSON.stringify({
       signal: 'adr-detected',
       file: filePath,
       keyword,
       hash,
+      recent_intents: recentIntents,
     }));
   } catch (_) {
     // Silent fail — never disrupt Claude

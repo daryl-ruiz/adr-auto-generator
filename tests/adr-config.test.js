@@ -61,10 +61,43 @@ describe('adr-config loadConfig', () => {
     assert.deepEqual(config.decisionKeywords, ['custom signal']);
   });
 
-  it('returns enableMessageScanning false by default', () => {
+  it('returns enableMessageScanning true by default', () => {
     const { loadConfig } = require('../hooks/adr-config');
     const config = loadConfig(tmpDir, tmpDir);
+    assert.equal(config.enableMessageScanning, true);
+  });
+
+  it('global config can disable enableMessageScanning', () => {
+    const { loadConfig } = require('../hooks/adr-config');
+    fs.writeFileSync(
+      path.join(tmpDir, 'adr-config.json'),
+      JSON.stringify({ enableMessageScanning: false })
+    );
+    const config = loadConfig(tmpDir, tmpDir);
     assert.equal(config.enableMessageScanning, false);
+  });
+
+  it('default infraPatterns include common entry points', () => {
+    const { loadConfig } = require('../hooks/adr-config');
+    const config = loadConfig(tmpDir, tmpDir);
+    for (const entry of ['app.py', 'main.py', 'index.ts', 'server.js', 'setup.py']) {
+      assert.ok(
+        config.infraPatterns.includes(entry),
+        `expected default infraPatterns to include "${entry}"`
+      );
+    }
+  });
+
+  it('default infraContentPatterns include heavy library imports', () => {
+    const { loadConfig } = require('../hooks/adr-config');
+    const config = loadConfig(tmpDir, tmpDir);
+    assert.ok(Array.isArray(config.infraContentPatterns));
+    const joined = config.infraContentPatterns.join(' ');
+    assert.match(joined, /asyncpg/);
+    assert.match(joined, /sqlalchemy/);
+    assert.match(joined, /redis/);
+    assert.match(joined, /celery/);
+    assert.match(joined, /pydantic/);
   });
 
   it('missing config files do not throw', () => {

@@ -9,9 +9,17 @@ const INFRA_CONFIG = {
   infraPatterns: [
     'package.json', 'docker-compose.yml', '*.tf', 'Makefile', 'requirements.txt',
     '*.config.js',
+    'app.py', 'main.py', 'index.ts', 'server.js',
   ],
   infraPathPrefixes: ['.github/workflows/', 'config/'],
   infraNamePatterns: ['migration', 'schema'],
+  infraContentPatterns: [
+    'import\\s+asyncpg',
+    'from\\s+sqlalchemy\\s+import',
+    'import\\s+redis',
+    'import\\s+celery',
+    'from\\s+pydantic\\s+import',
+  ],
 };
 
 describe('isInfraFile', () => {
@@ -56,6 +64,91 @@ describe('isInfraFile', () => {
 
   it('handles Windows-style backslash paths', () => {
     assert.ok(isInfraFile('.github\\workflows\\ci.yml', INFRA_CONFIG));
+  });
+
+  it('matches entry-point app.py via infraPatterns', () => {
+    assert.ok(isInfraFile('src/app.py', INFRA_CONFIG));
+  });
+
+  it('matches entry-point main.py via infraPatterns', () => {
+    assert.ok(isInfraFile('main.py', INFRA_CONFIG));
+  });
+
+  it('matches entry-point index.ts via infraPatterns', () => {
+    assert.ok(isInfraFile('src/index.ts', INFRA_CONFIG));
+  });
+
+  it('matches entry-point server.js via infraPatterns', () => {
+    assert.ok(isInfraFile('backend/server.js', INFRA_CONFIG));
+  });
+
+  it('promotes plain source file to infra when diff imports asyncpg', () => {
+    assert.ok(
+      isInfraFile('src/db_helpers.py', INFRA_CONFIG, 'import asyncpg\nasync def q():')
+    );
+  });
+
+  it('promotes plain source file to infra when diff imports sqlalchemy', () => {
+    assert.ok(
+      isInfraFile('src/repo.py', INFRA_CONFIG, 'from sqlalchemy import select')
+    );
+  });
+
+  it('promotes plain source file to infra when diff imports celery', () => {
+    assert.ok(
+      isInfraFile('worker.py', INFRA_CONFIG, 'import celery\napp = celery.Celery()')
+    );
+  });
+
+  it('does not promote plain source file when diff has no heavy imports', () => {
+    assert.ok(
+      !isInfraFile('src/util.py', INFRA_CONFIG, 'def add(a, b):\n    return a + b')
+    );
+  });
+
+  it('isInfraFile is backward compatible without diffText', () => {
+    assert.ok(isInfraFile('package.json', INFRA_CONFIG));
+    assert.ok(!isInfraFile('src/util.py', INFRA_CONFIG));
+  });
+});
+
+describe('matchesInfraContent', () => {
+  let matchesInfraContent;
+  beforeEach(() => {
+    delete require.cache[require.resolve('../hooks/detector')];
+    ({ matchesInfraContent } = require('../hooks/detector'));
+  });
+
+  it('returns true for "import asyncpg"', () => {
+    assert.ok(matchesInfraContent('import asyncpg', INFRA_CONFIG));
+  });
+
+  it('returns true for "from sqlalchemy import select"', () => {
+    assert.ok(matchesInfraContent('from sqlalchemy import select', INFRA_CONFIG));
+  });
+
+  it('returns true for "import redis"', () => {
+    assert.ok(matchesInfraContent('import redis as r', INFRA_CONFIG));
+  });
+
+  it('returns true for "from pydantic import BaseModel"', () => {
+    assert.ok(matchesInfraContent('from pydantic import BaseModel', INFRA_CONFIG));
+  });
+
+  it('returns false on empty diffText', () => {
+    assert.ok(!matchesInfraContent('', INFRA_CONFIG));
+  });
+
+  it('returns false when no heavy import present', () => {
+    assert.ok(!matchesInfraContent('print("hello")', INFRA_CONFIG));
+  });
+
+  it('returns false when config has no infraContentPatterns', () => {
+    assert.ok(!matchesInfraContent('import asyncpg', { decisionKeywords: [] }));
+  });
+
+  it('is case-insensitive', () => {
+    assert.ok(matchesInfraContent('IMPORT ASYNCPG', INFRA_CONFIG));
   });
 });
 

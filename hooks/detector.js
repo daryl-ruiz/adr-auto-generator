@@ -4,12 +4,12 @@ const path = require('path');
 const os = require('os');
 const crypto = require('crypto');
 
-function isInfraFile(filePath, config) {
+function _matchesPathPatterns(filePath, config) {
   const normalized = filePath.replace(/\\/g, '/');
   const basename = path.basename(normalized);
   const lowerBasename = basename.toLowerCase();
 
-  for (const pattern of config.infraPatterns) {
+  for (const pattern of config.infraPatterns || []) {
     if (pattern.startsWith('*.')) {
       const ext = pattern.slice(1); // e.g. '.tf'
       if (basename.endsWith(ext)) return true;
@@ -18,14 +18,40 @@ function isInfraFile(filePath, config) {
     }
   }
 
-  for (const prefix of config.infraPathPrefixes) {
+  for (const prefix of config.infraPathPrefixes || []) {
     if (normalized.includes(prefix)) return true;
   }
 
-  for (const namePattern of config.infraNamePatterns) {
+  for (const namePattern of config.infraNamePatterns || []) {
     if (lowerBasename.includes(namePattern)) return true;
   }
 
+  return false;
+}
+
+function matchesInfraContent(diffText, config) {
+  if (!diffText) return false;
+  const patterns = config.infraContentPatterns || [];
+  for (const pattern of patterns) {
+    const regex = new RegExp(pattern, 'i');
+    if (regex.test(diffText)) return true;
+  }
+  return false;
+}
+
+/**
+ * A file qualifies as infrastructure if EITHER its path matches a known
+ * pattern OR its diff text introduces a heavy/architectural import. The
+ * second criterion catches decisions made in plain source files (e.g.
+ * adopting asyncpg inside app.py) that path rules alone would miss.
+ *
+ * @param {string} filePath
+ * @param {object} config
+ * @param {string} [diffText] - Write content or Edit old+new strings concatenated.
+ */
+function isInfraFile(filePath, config, diffText = '') {
+  if (_matchesPathPatterns(filePath, config)) return true;
+  if (matchesInfraContent(diffText, config)) return true;
   return false;
 }
 
@@ -71,4 +97,11 @@ function recordHash(hash) {
   fs.writeFileSync(filePath, JSON.stringify(data, null, 2));
 }
 
-module.exports = { isInfraFile, findDecisionKeyword, computeHash, isDeduped, recordHash };
+module.exports = {
+  isInfraFile,
+  matchesInfraContent,
+  findDecisionKeyword,
+  computeHash,
+  isDeduped,
+  recordHash,
+};
