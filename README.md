@@ -383,6 +383,12 @@ native fetch; parse responses via response.json() instead of response.data.
 - [ ] Status transitions (proposed → accepted → superseded)
 - [ ] Other templates (MADR, Y-statement)
 
+## Support
+
+If this plugin saves you time, consider buying me a coffee.
+
+[![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/darylruiz)
+
 ## License
 
 MIT
